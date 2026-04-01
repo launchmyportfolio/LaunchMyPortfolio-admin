@@ -16,14 +16,16 @@ const config = {
 
   // Production: Render or other hosting
   production: {
-    // Get from window.__ENV__ set by Render, or use default
-    API_BASE_URL: window.__ENV__?.API_BASE_URL || 'https://launchportfolio-api.onrender.com/api',
+    // Update this with your actual Render backend URL
+    // Example: https://launchportfolio-api.onrender.com/api
+    // Find your backend URL in Render Dashboard → Services → your-backend-service
+    API_BASE_URL: 'https://launchportfolio-api.onrender.com/api',
     API_TIMEOUT: 15000,
   },
 
   // Staging: for testing before production
   staging: {
-    API_BASE_URL: window.__ENV__?.API_BASE_URL || 'https://staging-api.onrender.com/api',
+    API_BASE_URL: 'https://staging-api.onrender.com/api',
     API_TIMEOUT: 10000,
   },
 };
