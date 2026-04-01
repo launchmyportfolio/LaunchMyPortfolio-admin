@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Customers - LaunchMyPortfolio CRM</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <div class="logo">LaunchMyPortfolio</div>
+      <nav class="nav-items">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="customers.html">Customers</a>
+        <span id="adminName"></span>
+        <button class="logout-btn" onclick="utils.logout()">Logout</button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+      <h1>Customers</h1>
+      <a href="add-customer.html" class="btn btn-success">+ Add Customer</a>
+    </div>
+
+    <!-- Search and Filter Area -->
+    <div class="search-filter-area">
+      <div class="search-filter-grid">
+        <input 
+          type="text" 
+          id="searchInput" 
+          placeholder="Search by name or email..." 
+          onkeyup="handleSearch()"
+        >
+        <select id="statusFilter" onchange="handleFilter()">
+          <option value="">All Status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+          <option value="pending">Pending</option>
+        </select>
+        <select id="planFilter" onchange="handleFilter()">
+          <option value="">All Plans</option>
+          <option value="starter">Starter</option>
+          <option value="professional">Professional</option>
+          <option value="enterprise">Enterprise</option>
+          <option value="none">None</option>
+        </select>
+        <select id="sortFilter" onchange="handleSort()">
+          <option value="latest">Latest First</option>
+          <option value="oldest">Oldest First</option>
+        </select>
+      </div>
+      <div class="search-filter-actions">
+        <button class="btn btn-primary" onclick="applyFilters()">Apply Filters</button>
+        <button class="btn btn-secondary" onclick="resetFilters()">Reset</button>
+      </div>
+    </div>
+
+    <!-- Customers Table -->
+    <div class="table-wrapper">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Website</th>
+            <th>Paid</th>
+            <th>Due</th>
+            <th>Sub. End</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="customersList">
+          <tr>
+            <td colspan="8" class="empty-state">
+              <h3>Loading...</h3>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div id="deleteModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Delete Customer</h2>
+        <button class="modal-close" onclick="closeDeleteModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>Are you sure you want to delete this customer? This action cannot be undone.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+        <button class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script>
+    // Protect page
+    protectPage();
+
+    // Display admin name
+    const admin = utils.getAdminInfo();
+    if (admin) {
+      document.getElementById('adminName').textContent = admin.name;
+    }
+
+    let allCustomers = [];
+    let customerToDelete = null;
+
+    // Load all customers
+    const loadCustomers = async (params = {}) => {
+      try {
+        const result = await customerAPI.getAll(params);
+
+        if (result.data.success) {
+          allCustomers = result.data.customers;
+          displayCustomers(allCustomers);
+        } else {
+          utils.showNotification(result.data.message, 'error');
+        }
+      } catch (error) {
+        utils.showNotification('Failed to load customers', 'error');
+        console.error('Error loading customers:', error);
+      }
+    };
+
+    // Display customers in table
+    const displayCustomers = (customers) => {
+      const tbody = document.getElementById('customersList');
+
+      if (customers.length > 0) {
+        tbody.innerHTML = customers.map(customer => {
+          const subscriptionEndDate = customer.subscriptionEndDate
+            ? new Date(customer.subscriptionEndDate).toLocaleDateString('en-IN', {
+                month: 'short',
+                day: 'numeric'
+              })
+            : '-';
+
+          return `
+            <tr>
+              <td>${customer.firstName} ${customer.lastName}</td>
+              <td>${customer.email}</td>
+              <td>
+                ${customer.websiteUrl ? `<a href="${customer.websiteUrl}" target="_blank" title="${customer.websiteUrl}">Link</a>` : '-'}
+              </td>
+              <td>₹${(customer.amountPaid || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
+              <td>₹${(customer.amountDue || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}</td>
+              <td>${subscriptionEndDate}</td>
+              <td><span class="badge badge-${customer.status}">${customer.status}</span></td>
+              <td>
+                <div class="table-actions">
+                  <a href="view-customer.html?id=${customer._id}" class="btn btn-primary btn-sm">View</a>
+                  <a href="payments.html?id=${customer._id}" class="btn btn-info btn-sm">Add Payment</a>
+                  <a href="edit-customer.html?id=${customer._id}" class="btn btn-secondary btn-sm">Edit</a>
+                  <button class="btn btn-danger btn-sm" onclick="openDeleteModal('${customer._id}', '${customer.firstName} ${customer.lastName}')">Delete</button>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } else {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="8" class="empty-state">
+              <h3>No customers found</h3>
+              <p>Try adjusting your search or filters</p>
+            </td>
+          </tr>
+        `;
+      }
+    };
+
+    // Handle search
+    const handleSearch = () => {
+      applyFilters();
+    };
+
+    // Handle filter change
+    const handleFilter = () => {
+      // Filters applied on button click
+    };
+
+    // Handle sort change
+    const handleSort = () => {
+      applyFilters();
+    };
+
+    // Apply filters
+    const applyFilters = async () => {
+      const search = document.getElementById('searchInput').value;
+      const status = document.getElementById('statusFilter').value;
+      const plan = document.getElementById('planFilter').value;
+      const sort = document.getElementById('sortFilter').value;
+
+      const params = {};
+      if (search) params.search = search;
+      if (status) params.status = status;
+      if (plan) params.plan = plan;
+      if (sort) params.sort = sort;
+
+      await loadCustomers(params);
+    };
+
+    // Reset filters
+    const resetFilters = () => {
+      document.getElementById('searchInput').value = '';
+      document.getElementById('statusFilter').value = '';
+      document.getElementById('planFilter').value = '';
+      document.getElementById('sortFilter').value = 'latest';
+      loadCustomers();
+    };
+
+    // Delete modal functions
+    const openDeleteModal = (customerId, customerName) => {
+      customerToDelete = customerId;
+      document.getElementById('deleteModal').classList.add('active');
+      document.querySelector('.modal-body').innerHTML = `
+        <p>Are you sure you want to delete <strong>${customerName}</strong>? This action cannot be undone.</p>
+      `;
+    };
+
+    const closeDeleteModal = () => {
+      document.getElementById('deleteModal').classList.remove('active');
+      customerToDelete = null;
+    };
+
+    // Confirm delete
+    document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+      if (customerToDelete) {
+        try {
+          const result = await customerAPI.delete(customerToDelete);
+
+          if (result.data.success) {
+            utils.showNotification('Customer deleted successfully', 'success');
+            closeDeleteModal();
+            await loadCustomers();
+          } else {
+            utils.showNotification(result.data.message, 'error');
+          }
+        } catch (error) {
+          utils.showNotification('Failed to delete customer', 'error');
+          console.error('Error deleting customer:', error);
+        }
+      }
+    });
+
+    // Load customers on page load
+    loadCustomers();
+  </script>
+</body>
+</html>

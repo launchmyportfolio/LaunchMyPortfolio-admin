@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - LaunchMyPortfolio CRM</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <div class="logo">LaunchMyPortfolio</div>
+      <nav class="nav-items">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="customers.html">Customers</a>
+        <span id="adminName"></span>
+        <button class="logout-btn" onclick="utils.logout()">Logout</button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="container">
+    <h1>Dashboard</h1>
+
+    <div class="dashboard-grid">
+      <div class="card">
+        <h2>Total Customers</h2>
+        <div class="card-value" id="totalCustomers">0</div>
+      </div>
+
+      <div class="card">
+        <h2>Active Customers</h2>
+        <div class="card-value" id="activeCustomers">0</div>
+      </div>
+
+      <div class="card">
+        <h2>Pending Customers</h2>
+        <div class="card-value" id="pendingCustomers">0</div>
+      </div>
+
+      <div class="card">
+        <h2>Inactive Customers</h2>
+        <div class="card-value" id="inactiveCustomers">0</div>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap;">
+      <a href="customers.html" class="btn btn-primary">View All Customers</a>
+      <a href="add-customer.html" class="btn btn-success">Add New Customer</a>
+    </div>
+
+    <!-- Notifications Section -->
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <h2>Recent Notifications <span class="notification-badge" id="notificationCount">0</span></h2>
+        <button class="btn btn-sm" id="markAllAsReadBtn" style="display: none;" onclick="markAllAsRead()">Mark All as Read</button>
+      </div>
+      <div id="notificationsList" style="max-height: 300px; overflow-y: auto;">
+        <p style="color: #999; text-align: center;">No notifications yet</p>
+      </div>
+    </div>
+
+    <hr style="margin: 2rem 0;">
+
+    <h2>Recent Customers</h2>
+    <div class="table-wrapper">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Status</th>
+            <th>Plan</th>
+            <th>Date Added</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="recentCustomersList">
+          <tr>
+            <td colspan="6" class="empty-state">
+              <h3>No customers yet</h3>
+              <p>Add your first customer to get started</p>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script>
+    // Protect page
+    protectPage();
+
+    // Display admin name
+    const admin = utils.getAdminInfo();
+    if (admin) {
+      document.getElementById('adminName').textContent = admin.name;
+    }
+
+    // Load dashboard data
+    const loadDashboard = async () => {
+      try {
+        const result = await customerAPI.getAll();
+        const expiringResult = await customerAPI.getExpiringSubscriptions();
+
+        if (result.data.success) {
+          const customers = result.data.customers;
+
+          // Calculate stats
+          const total = customers.length;
+          const active = customers.filter(c => c.status === 'active').length;
+          const pending = customers.filter(c => c.status === 'pending').length;
+          const inactive = customers.filter(c => c.status === 'inactive').length;
+
+          document.getElementById('totalCustomers').textContent = total;
+          document.getElementById('activeCustomers').textContent = active;
+          document.getElementById('pendingCustomers').textContent = pending;
+          document.getElementById('inactiveCustomers').textContent = inactive;
+
+          // Display recent customers (last 5)
+          const recentCustomers = customers.slice(0, 5);
+          const tbody = document.getElementById('recentCustomersList');
+
+          if (recentCustomers.length > 0) {
+            tbody.innerHTML = recentCustomers.map(customer => `
+              <tr>
+                <td>${customer.firstName} ${customer.lastName}</td>
+                <td>${customer.email}</td>
+                <td><span class="badge badge-${customer.status}">${customer.status}</span></td>
+                <td>${customer.plan}</td>
+                <td>${utils.formatDate(customer.createdAt)}</td>
+                <td>
+                  <div class="table-actions">
+                    <a href="view-customer.html?id=${customer._id}" class="btn btn-primary btn-sm">View</a>
+                    <a href="edit-customer.html?id=${customer._id}" class="btn btn-secondary btn-sm">Edit</a>
+                  </div>
+                </td>
+              </tr>
+            `).join('');
+          } else {
+            tbody.innerHTML = `
+              <tr>
+                <td colspan="6" class="empty-state">
+                  <h3>No customers yet</h3>
+                  <p>Add your first customer to get started</p>
+                </td>
+              </tr>
+            `;
+          }
+        }
+
+        // Load notifications
+        await loadNotifications();
+
+        // Check for expiring subscriptions and show notifications
+        if (expiringResult.data.success && expiringResult.data.count > 0) {
+          const expiringCustomers = expiringResult.data.expiringCustomers;
+          expiringCustomers.slice(0, 3).forEach(customer => {
+            utils.showNotification(
+              `⚠️ ${customer.firstName} ${customer.lastName}'s subscription is expiring soon!`,
+              'warning'
+            );
+          });
+        }
+      } catch (error) {
+        console.error('Error loading dashboard:', error);
+      }
+    };
+
+    // Load and display notifications
+    const loadNotifications = async () => {
+      try {
+        const response = await fetch('/api/notifications?limit=10', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          const notificationsList = document.getElementById('notificationsList');
+          const unreadCount = data.unreadCount || 0;
+          const notifications = data.notifications || [];
+
+          // Update unread count badge
+          const badge = document.getElementById('notificationCount');
+          badge.textContent = unreadCount;
+          badge.style.display = unreadCount > 0 ? 'inline-block' : 'none';
+
+          // Show/hide mark all as read button
+          const markAllBtn = document.getElementById('markAllAsReadBtn');
+          markAllBtn.style.display = unreadCount > 0 ? 'inline-block' : 'none';
+
+          // Display notifications
+          if (notifications.length > 0) {
+            notificationsList.innerHTML = notifications.map(notification => {
+              const typeClass = {
+                'subscription-expiry': 'warning',
+                'subscription-expired': 'danger',
+                'payment-due': 'info',
+                'reminder': 'info'
+              }[notification.type] || 'info';
+
+              return `
+                <div class="notification-item ${!notification.read ? 'unread' : ''}" 
+                     onclick="viewNotification('${notification.customerId._id || notification.customerId}')">
+                  <div style="display: flex; justify-content: space-between; align-items: start;">
+                    <div style="flex: 1;">
+                      <p style="margin: 0 0 0.5rem 0;">${notification.message}</p>
+                      <small style="color: #999;">${utils.formatDate(notification.createdAt)}</small>
+                    </div>
+                    <span class="badge badge-${typeClass}" style="margin-left: 1rem;">${notification.type}</span>
+                  </div>
+                </div>
+              `;
+            }).join('');
+          } else {
+            notificationsList.innerHTML = '<p style="color: #999; text-align: center;">No notifications yet</p>';
+          }
+        }
+      } catch (error) {
+        console.error('Error loading notifications:', error);
+      }
+    };
+
+    // Mark all notifications as read
+    const markAllAsRead = async () => {
+      try {
+        const response = await fetch('/api/notifications/read-all', {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+
+        if (response.ok) {
+          await loadNotifications();
+        }
+      } catch (error) {
+        console.error('Error marking notifications as read:', error);
+      }
+    };
+
+    // View customer from notification
+    const viewNotification = (customerId) => {
+      window.location.href = `view-customer.html?id=${customerId}`;
+    };
+
+    loadDashboard();
+  </script>
+</body>
+</html>

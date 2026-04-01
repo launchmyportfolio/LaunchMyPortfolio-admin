@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Customer Finances - LaunchMyPortfolio CRM</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <div class="logo">LaunchMyPortfolio</div>
+      <nav class="nav-items">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="customers.html">Customers</a>
+        <span id="adminName"></span>
+        <button class="logout-btn" onclick="utils.logout()">Logout</button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+      <h1 id="customerName">Customer Finances</h1>
+      <a href="customers.html" class="btn btn-secondary">Back to Customers</a>
+    </div>
+
+    <!-- Financial Summary -->
+    <div class="dashboard-grid">
+      <div class="card">
+        <h2>Total Amount Received</h2>
+        <div class="card-value" id="totalAmountReceived">₹0</div>
+      </div>
+
+      <div class="card">
+        <h2>Amount Value</h2>
+        <div class="card-value" id="amountValue">₹0</div>
+      </div>
+
+      <div class="card">
+        <h2>Yearly Subscription</h2>
+        <div class="card-value" id="yearlySubscription">₹0</div>
+      </div>
+
+      <div class="card">
+        <h2>Subscription Status</h2>
+        <div class="card-value" id="subscriptionStatus" style="font-size: 1.5rem;">Upcoming</div>
+      </div>
+    </div>
+
+    <!-- Subscription Details -->
+    <div class="card" style="margin-bottom: 2rem;">
+      <h2 style="margin-bottom: 1rem;">Subscription Details</h2>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+        <div>
+          <label style="color: #6b7280; font-weight: 600;">Start Date</label>
+          <p id="startDate">-</p>
+        </div>
+        <div>
+          <label style="color: #6b7280; font-weight: 600;">End Date</label>
+          <p id="endDate">-</p>
+        </div>
+        <div>
+          <label style="color: #6b7280; font-weight: 600;">Days Until Expiry</label>
+          <p id="daysUntilExpiry">-</p>
+        </div>
+        <div>
+          <label style="color: #6b7280; font-weight: 600;">Website Developed</label>
+          <p id="websiteDeveloped">-</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Payment Section -->
+    <div class="card" style="margin-bottom: 2rem;">
+      <h2 style="margin-bottom: 1rem;">Record Payment</h2>
+      <form id="addPaymentForm">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+          <div class="form-group" style="margin: 0;">
+            <label for="paymentAmount">Amount (₹) *</label>
+            <input type="number" id="paymentAmount" name="paymentAmount" min="0" step="0.01" required>
+          </div>
+
+          <div class="form-group" style="margin: 0;">
+            <label for="paymentDate">Payment Date *</label>
+            <input type="date" id="paymentDate" name="paymentDate" required>
+          </div>
+
+          <div class="form-group" style="margin: 0;">
+            <label for="paymentMode">Payment Mode *</label>
+            <select id="paymentMode" name="paymentMode" autocomplete="off" required>
+              <option value="">-- Select Mode --</option>
+              <option value="cash">Cash</option>
+              <option value="bank">Bank Transfer</option>
+              <option value="upi">UPI</option>
+              <option value="card">Card</option>
+              <option value="cheque">Cheque</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin: 0;">
+            <label for="paymentType">Payment Type *</label>
+            <select id="paymentType" name="paymentType" autocomplete="off" required>
+              <option value="">-- Select Type --</option>
+              <option value="website">Website Development</option>
+              <option value="subscription">Subscription</option>
+              <option value="extra">Extra</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="remarks">Remarks</label>
+          <textarea id="remarks" name="remarks" placeholder="Payment notes/details..." style="min-height: 80px;"></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-success">Record Payment</button>
+      </form>
+    </div>
+
+    <!-- Payment History -->
+    <div class="card">
+      <h2 style="margin-bottom: 1rem;">Payment History</h2>
+      <div class="table-wrapper">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Amount</th>
+              <th>Method</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody id="paymentHistoryList">
+            <tr>
+              <td colspan="4" class="empty-state">
+                <h3>No payments recorded</h3>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script>
+    // Protect page
+    protectPage();
+
+    // Display admin name
+    const admin = utils.getAdminInfo();
+    if (admin) {
+      document.getElementById('adminName').textContent = admin.name;
+    }
+
+    // Get customer ID from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const customerId = urlParams.get('id');
+
+    if (!customerId) {
+      window.location.href = '/customers.html';
+    }
+
+    // Load customer details
+    const loadCustomerFinances = async () => {
+      try {
+        const custResult = await customerAPI.getById(customerId);
+        const paymentResult = await customerAPI.getPaymentHistory(customerId);
+
+        if (custResult && custResult.data && custResult.data.success) {
+          const customer = custResult.data.customer;
+          document.getElementById('customerName').textContent = `${customer.firstName} ${customer.lastName} - Finances`;
+          document.getElementById('totalAmountReceived').textContent = `₹${customer.totalAmountReceived.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+          document.getElementById('amountValue').textContent = `₹${customer.websiteDevelopedAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+          document.getElementById('yearlySubscription').textContent = `₹${customer.yearlySubscriptionAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+          document.getElementById('websiteDeveloped').textContent = customer.websiteDevelopedAmount > 0 ? 'Yes' : 'No';
+          
+          if (customer.subscriptionStartDate) {
+            document.getElementById('startDate').textContent = utils.formatDate(customer.subscriptionStartDate);
+          }
+          if (customer.subscriptionEndDate) {
+            document.getElementById('endDate').textContent = utils.formatDate(customer.subscriptionEndDate);
+          }
+
+          // Calculate subscription status from customer object
+          const subStatus = customerAPI.calculateSubscriptionStatus(customer);
+          if (subStatus && subStatus.data && subStatus.data.success) {
+            document.getElementById('subscriptionStatus').textContent = subStatus.data.subscriptionStatus.toUpperCase();
+            
+            if (subStatus.data.daysUntilExpiry !== null) {
+              if (subStatus.data.daysUntilExpiry > 0) {
+                document.getElementById('daysUntilExpiry').textContent = subStatus.data.daysUntilExpiry + ' days';
+                
+                // Show notification if expiring soon
+                if (subStatus.data.isExpiringSoon) {
+                  utils.showNotification(`⚠️ Subscription expiring in ${subStatus.data.daysUntilExpiry} days!`, 'warning');
+                }
+              } else if (subStatus.data.daysUntilExpiry <= 0) {
+                document.getElementById('daysUntilExpiry').textContent = 'EXPIRED';
+                utils.showNotification('⚠️ Subscription has expired!', 'error');
+              }
+            }
+          }
+        } else {
+          utils.showNotification('Failed to load customer data', 'error');
+          return;
+        }
+
+        // Display payment history
+        if (paymentResult && paymentResult.data && paymentResult.data.success) {
+          const payments = paymentResult.data.paymentHistory || [];
+          const tbody = document.getElementById('paymentHistoryList');
+
+          if (payments.length > 0) {
+            tbody.innerHTML = payments.map(payment => `
+              <tr>
+                <td>${utils.formatDate(payment.paymentDate)}</td>
+                <td style="font-weight: 600; color: var(--success-color);">₹${payment.paymentAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                <td>${payment.paymentMode ? payment.paymentMode.toUpperCase() : '-'}</td>
+                <td>${payment.remarks || '-'}</td>
+              </tr>
+            `).join('');
+          } else {
+            tbody.innerHTML = `
+              <tr>
+                <td colspan="4" class="empty-state">
+                  <h3>No payments recorded</h3>
+                </td>
+              </tr>
+            `;
+          }
+        }
+      } catch (error) {
+        utils.showNotification('Failed to load customer finances', 'error');
+        console.error('Error:', error);
+      }
+    };
+
+    // Handle payment form submission
+    document.getElementById('addPaymentForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const paymentAmount = document.getElementById('paymentAmount');
+      const paymentDate = document.getElementById('paymentDate');
+      const paymentMode = document.getElementById('paymentMode');
+      const paymentType = document.getElementById('paymentType');
+      const remarks = document.getElementById('remarks');
+
+      // Check if all elements exist before accessing them
+      if (!paymentAmount || !paymentDate || !paymentMode || !paymentType) {
+        utils.showNotification('Form elements are missing. Please refresh the page.', 'error');
+        return;
+      }
+
+      const paymentData = {
+        paymentAmount: parseFloat(paymentAmount.value),
+        paymentDate: paymentDate.value,
+        paymentMode: paymentMode.value,
+        paymentType: paymentType.value,
+        remarks: remarks ? remarks.value : '',
+      };
+
+      try {
+        const result = await customerAPI.addPayment(customerId, paymentData);
+
+        if (result && result.data && result.data.success) {
+          utils.showNotification('Payment recorded successfully', 'success');
+          document.getElementById('addPaymentForm').reset();
+          await loadCustomerFinances();
+        } else {
+          utils.showNotification(result && result.data ? result.data.message : 'Failed to record payment', 'error');
+        }
+      } catch (error) {
+        utils.showNotification('Failed to record payment', 'error');
+        console.error('Error:', error);
+      }
+    });
+
+    // Load data on page load
+    loadCustomerFinances();
+  </script>
+</body>
+</html>

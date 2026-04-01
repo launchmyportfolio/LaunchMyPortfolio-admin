@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment Management - LaunchMyPortfolio Admin</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Navigation -->
+    <nav class="navbar">
+      <div class="navbar-content">
+        <h1>LaunchMyPortfolio Admin</h1>
+        <div class="nav-links">
+          <a href="dashboard.html">Dashboard</a>
+          <a href="customers.html">Customers</a>
+          <a href="#" id="logoutBtn">Logout</a>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="page-header">
+        <h2>Payment Management</h2>
+        <button onclick="goBack()" class="btn btn-secondary">← Back</button>
+      </div>
+
+      <!-- Customer Info Section -->
+      <div id="customerInfo" class="card">
+        <h3 id="customerName">Loading...</h3>
+        <p id="customerCompany"></p>
+        <p id="customerWebsite" style="font-size: 0.9em; color: #666;"></p>
+      </div>
+
+      <!-- Summary Cards -->
+      <div class="summary-cards">
+        <div class="card">
+          <div class="card-title">Website Amount</div>
+          <div class="card-value" id="websiteAmount">₹0</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Amount Paid</div>
+          <div class="card-value" id="amountPaid">₹0</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Amount Due</div>
+          <div class="card-value" id="amountDue">₹0</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Subscription End</div>
+          <div class="card-value" id="subscriptionEnd">-</div>
+        </div>
+      </div>
+
+      <!-- Tabs for Payment History and Add Payment -->
+      <div class="tabs">
+        <button class="tab-button active" onclick="switchTab('history')">Payment History</button>
+        <button class="tab-button" onclick="switchTab('add')">Add Payment</button>
+      </div>
+
+      <!-- Payment History Tab -->
+      <div id="history-tab" class="tab-content active">
+        <div class="card">
+          <h3>Payment History</h3>
+          <div class="table-responsive">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Amount</th>
+                  <th>Mode</th>
+                  <th>Type</th>
+                  <th>Remarks</th>
+                </tr>
+              </thead>
+              <tbody id="paymentTableBody">
+                <tr>
+                  <td colspan="5" style="text-align: center; color: #999;">No payments recorded yet</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add Payment Tab -->
+      <div id="add-tab" class="tab-content">
+        <div class="card">
+          <h3>Record a New Payment</h3>
+          <form id="addPaymentForm" onsubmit="handleAddPayment(event)">
+            <div class="form-group">
+              <label for="paymentAmount">Payment Amount (₹) *</label>
+              <input
+                type="number"
+                id="paymentAmount"
+                name="paymentAmount"
+                step="0.01"
+                min="0"
+                placeholder="Enter amount"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="paymentDate">Payment Date *</label>
+              <input
+                type="date"
+                id="paymentDate"
+                name="paymentDate"
+                autocomplete="bday"
+                required
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="paymentMode">Payment Mode *</label>
+              <select id="paymentMode" name="paymentMode" autocomplete="off" required>
+                <option value="">-- Select Mode --</option>
+                <option value="cash">Cash</option>
+                <option value="upi">UPI</option>
+                <option value="bank">Bank Transfer</option>
+                <option value="card">Card</option>
+                <option value="cheque">Cheque</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="paymentType">Payment Type *</label>
+              <select id="paymentType" name="paymentType" autocomplete="off" required>
+                <option value="">-- Select Type --</option>
+                <option value="website">Website Development</option>
+                <option value="subscription">Subscription</option>
+                <option value="extra">Extra</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="remarks">Remarks</label>
+              <textarea
+                id="remarks"
+                name="remarks"
+                placeholder="Optional notes about this payment"
+                rows="3"
+              ></textarea>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">Record Payment</button>
+              <button type="reset" class="btn btn-secondary">Clear</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script>
+    // Protect page
+    protectPage();
+
+    const customerId = new URLSearchParams(window.location.search).get('id');
+    let currentPayments = [];
+
+    // Set today's date as default
+    document.getElementById('paymentDate').valueAsDate = new Date();
+
+    // Load customer and payment data
+    async function loadPaymentData() {
+      try {
+        if (!customerId) {
+          showError('Customer ID not provided');
+          return;
+        }
+
+        const result = await customerAPI.getPaymentHistory(customerId);
+        
+        if (!result || !result.data) {
+          showError('Failed to load payment data');
+          return;
+        }
+
+        // Get customer details too
+        const custResult = await customerAPI.getById(customerId);
+        
+        if (!custResult || !custResult.data || !custResult.data.success) {
+          showError('Failed to load customer details');
+          return;
+        }
+
+        const data = custResult.data.customer;
+
+        // Display customer info
+        document.getElementById('customerName').textContent =
+          `${data.firstName} ${data.lastName}`;
+        document.getElementById('customerCompany').textContent =
+          `Company: ${data.company || 'N/A'}`;
+        document.getElementById('customerWebsite').textContent =
+          `Website: ${data.websiteUrl || 'N/A'}`;
+
+        // Display summary
+        document.getElementById('websiteAmount').textContent =
+          `₹${(data.websiteDevelopedAmount || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+        document.getElementById('amountPaid').textContent =
+          `₹${(data.amountPaid || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+        document.getElementById('amountDue').textContent =
+          `₹${(data.amountDue || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+
+        if (data.subscriptionEndDate) {
+          const endDate = new Date(data.subscriptionEndDate);
+          document.getElementById('subscriptionEnd').textContent =
+            endDate.toLocaleDateString('en-IN');
+        } else {
+          document.getElementById('subscriptionEnd').textContent = '-';
+        }
+
+        // Display payment history
+        if (result.data.paymentHistory || result.data.success) {
+          currentPayments = result.data.paymentHistory || [];
+        }
+        renderPaymentHistory();
+      } catch (error) {
+        console.error('Error loading payment data:', error);
+        showError('Failed to load payment data');
+      }
+    }
+
+    function renderPaymentHistory() {
+      const tbody = document.getElementById('paymentTableBody');
+
+      if (currentPayments.length === 0) {
+        tbody.innerHTML =
+          '<tr><td colspan="5" style="text-align: center; color: #999;">No payments recorded yet</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = currentPayments
+        .sort((a, b) => new Date(b.paymentDate) - new Date(a.paymentDate))
+        .map(payment => `
+          <tr>
+            <td>${new Date(payment.paymentDate).toLocaleDateString('en-IN')}</td>
+            <td>₹${(payment.paymentAmount).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</td>
+            <td><span class="badge">${payment.paymentMode}</span></td>
+            <td><span class="badge">${payment.paymentType}</span></td>
+            <td>${payment.remarks || '-'}</td>
+          </tr>
+        `)
+        .join('');
+    }
+
+    async function handleAddPayment(event) {
+      event.preventDefault();
+
+      // Get form elements with null checks
+      const paymentAmountEl = document.getElementById('paymentAmount');
+      const paymentDateEl = document.getElementById('paymentDate');
+      const paymentModeEl = document.getElementById('paymentMode');
+      const paymentTypeEl = document.getElementById('paymentType');
+      const remarksEl = document.getElementById('remarks');
+
+      // Validate all elements exist
+      if (!paymentAmountEl || !paymentDateEl || !paymentModeEl || !paymentTypeEl) {
+        showError('Form elements are missing. Please refresh the page.');
+        return;
+      }
+
+      const paymentAmount = parseFloat(paymentAmountEl.value);
+      const paymentDate = paymentDateEl.value;
+      const paymentMode = paymentModeEl.value;
+      const paymentType = paymentTypeEl.value;
+      const remarks = remarksEl ? remarksEl.value : '';
+
+      // Validate form data
+      if (!paymentAmount || isNaN(paymentAmount)) {
+        showError('Please enter a valid payment amount');
+        return;
+      }
+
+      if (!paymentDate) {
+        showError('Please select a payment date');
+        return;
+      }
+
+      if (!paymentMode) {
+        showError('Please select a payment mode');
+        return;
+      }
+
+      if (!paymentType) {
+        showError('Please select a payment type');
+        return;
+      }
+
+      try {
+        const result = await customerAPI.addPayment(customerId, {
+          paymentAmount,
+          paymentDate,
+          paymentMode,
+          paymentType,
+          remarks
+        });
+
+        if (!result || !result.data) {
+          showError('Failed to record payment');
+          return;
+        }
+
+        if (!result.data.success) {
+          showError(result.data.message || 'Failed to record payment');
+          return;
+        }
+
+        showSuccess('Payment recorded successfully!');
+        document.getElementById('addPaymentForm').reset();
+        document.getElementById('paymentDate').valueAsDate = new Date();
+
+        // Reload payment data
+        loadPaymentData();
+
+        // Switch to history tab
+        switchTab('history');
+      } catch (error) {
+        console.error('Error recording payment:', error);
+        showError('Failed to record payment');
+      }
+    }
+
+    function switchTab(tabName) {
+      // Hide all tabs
+      document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+      });
+
+      // Remove active class from all buttons
+      document.querySelectorAll('.tab-button').forEach(btn => {
+        btn.classList.remove('active');
+      });
+
+      // Show selected tab
+      document.getElementById(`${tabName}-tab`).classList.add('active');
+      event.target.classList.add('active');
+    }
+
+    function goBack() {
+      window.history.back();
+    }
+
+    function showSuccess(message) {
+      alert(message);
+    }
+
+    function showError(message) {
+      alert(`Error: ${message}`);
+    }
+
+    // Logout handler
+    document.getElementById('logoutBtn').addEventListener('click', (e) => {
+      e.preventDefault();
+      localStorage.removeItem('token');
+      localStorage.removeItem('adminInfo');
+      window.location.href = 'login.html';
+    });
+
+    // Load data on page load
+    loadPaymentData();
+  </script>
+</body>
+</html>

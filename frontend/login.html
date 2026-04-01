@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Login - LaunchMyPortfolio CRM</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-card">
+      <h1>LaunchMyPortfolio</h1>
+      <p>Admin Panel</p>
+
+      <div id="message"></div>
+
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="email">Email Address</label>
+          <input type="email" id="email" name="email" autocomplete="email" required>
+        </div>
+
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" autocomplete="current-password" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block">Login</button>
+
+        <div style="text-align: center; margin-top: 1rem; font-size: 0.875rem;">
+          <p>Don't have an account? <a href="#" id="registerLink" style="color: var(--primary-color); cursor: pointer; text-decoration: none;">Register here</a></p>
+        </div>
+      </form>
+
+      <form id="registerForm" style="display: none;">
+        <div class="form-group">
+          <label for="regName">Full Name</label>
+          <input type="text" id="regName" name="name" autocomplete="name" required>
+        </div>
+
+        <div class="form-group">
+          <label for="regEmail">Email Address</label>
+          <input type="email" id="regEmail" name="email" autocomplete="email" required>
+        </div>
+
+        <div class="form-group">
+          <label for="regPassword">Password</label>
+          <input type="password" id="regPassword" name="password" autocomplete="new-password" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block">Register</button>
+
+        <div style="text-align: center; margin-top: 1rem; font-size: 0.875rem;">
+          <p>Already have an account? <a href="#" id="loginLink" style="color: var(--primary-color); cursor: pointer; text-decoration: none;">Login here</a></p>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script>
+    // Toggle between login and register forms
+    document.getElementById('registerLink').addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('loginForm').style.display = 'none';
+      document.getElementById('registerForm').style.display = 'block';
+    });
+
+    document.getElementById('loginLink').addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('loginForm').style.display = 'block';
+      document.getElementById('registerForm').style.display = 'none';
+    });
+
+    // Handle login
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const messageDiv = document.getElementById('message');
+
+      try {
+        const result = await authAPI.login(email, password);
+        
+        if (result.data.success) {
+          localStorage.setItem('token', result.data.token);
+          utils.setAdminInfo(result.data.admin);
+          messageDiv.innerHTML = '<div class="success-message">Login successful! Redirecting...</div>';
+          setTimeout(() => {
+            window.location.href = '/dashboard.html';
+          }, 1000);
+        } else {
+          messageDiv.innerHTML = `<div class="error-message">${result.data.message}</div>`;
+        }
+      } catch (error) {
+        messageDiv.innerHTML = `<div class="error-message">Login failed. Please try again.</div>`;
+      }
+    });
+
+    // Handle register
+    document.getElementById('registerForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('regName').value;
+      const email = document.getElementById('regEmail').value;
+      const password = document.getElementById('regPassword').value;
+      const messageDiv = document.getElementById('message');
+
+      try {
+        const result = await authAPI.register(name, email, password);
+        
+        if (result.data.success) {
+          localStorage.setItem('token', result.data.token);
+          utils.setAdminInfo(result.data.admin);
+          messageDiv.innerHTML = '<div class="success-message">Registration successful! Redirecting...</div>';
+          setTimeout(() => {
+            window.location.href = '/dashboard.html';
+          }, 1000);
+        } else {
+          messageDiv.innerHTML = `<div class="error-message">${result.data.message}</div>`;
+        }
+      } catch (error) {
+        messageDiv.innerHTML = `<div class="error-message">Registration failed. Please try again.</div>`;
+      }
+    });
+
+    // Redirect to dashboard if already logged in
+    if (utils.isLoggedIn()) {
+      window.location.href = '/dashboard.html';
+    }
+  </script>
+</body>
+</html>

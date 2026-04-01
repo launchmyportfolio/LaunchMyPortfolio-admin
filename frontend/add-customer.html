@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Add Customer - LaunchMyPortfolio CRM</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <div class="logo">LaunchMyPortfolio</div>
+      <nav class="nav-items">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="customers.html">Customers</a>
+        <span id="adminName"></span>
+        <button class="logout-btn" onclick="utils.logout()">Logout</button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+      <h1>Add New Customer</h1>
+      <a href="customers.html" class="btn btn-secondary">Back to Customers</a>
+    </div>
+
+    <div style="max-width: 800px;">
+      <div class="card">
+        <form id="addCustomerForm">
+          <!-- Basic Information -->
+          <h3 style="margin-bottom: 1rem; color: var(--primary-color);">Basic Information</h3>
+
+          <div class="form-group">
+            <label for="firstName">First Name *</label>
+            <input type="text" id="firstName" name="firstName" autocomplete="given-name" required>
+          </div>
+
+          <div class="form-group">
+            <label for="lastName">Last Name *</label>
+            <input type="text" id="lastName" name="lastName" autocomplete="family-name" required>
+          </div>
+
+          <div class="form-group">
+            <label for="email">Email Address *</label>
+            <input type="email" id="email" name="email" autocomplete="email" required>
+          </div>
+
+          <div class="form-group">
+            <label for="phone">Phone Number</label>
+            <input type="tel" id="phone" name="phone" autocomplete="tel">
+          </div>
+
+          <div class="form-group">
+            <label for="company">Company</label>
+            <input type="text" id="company" name="company" autocomplete="organization">
+          </div>
+
+          <div class="form-group">
+            <label for="status">Status</label>
+            <select id="status" name="status">
+              <option value="pending">Pending</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="plan">Plan</label>
+            <select id="plan" name="plan">
+              <option value="none">None</option>
+              <option value="starter">Starter</option>
+              <option value="professional">Professional</option>
+              <option value="enterprise">Enterprise</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="notes">Notes</label>
+            <textarea id="notes" name="notes" placeholder="Add any notes about this customer..."></textarea>
+          </div>
+
+          <!-- Website Development -->
+          <h3 style="margin-top: 2rem; margin-bottom: 1rem; color: var(--primary-color);">Website Development</h3>
+
+          <div class="form-group">
+            <label for="websiteUrl">Website URL</label>
+            <input type="url" id="websiteUrl" name="websiteUrl" autocomplete="url" placeholder="https://example.com">
+          </div>
+
+          <div class="form-group">
+            <label for="websiteDevelopedAmount">Website Development Amount (₹)</label>
+            <input type="number" id="websiteDevelopedAmount" name="websiteDevelopedAmount" min="0" step="0.01" placeholder="0.00">
+          </div>
+
+          <!-- Financial Information -->
+          <h3 style="margin-top: 2rem; margin-bottom: 1rem; color: var(--primary-color);">Financial Information</h3>
+
+          <div class="form-group">
+            <label for="yearlySubscriptionAmount">Yearly Subscription Amount (₹)</label>
+            <input type="number" id="yearlySubscriptionAmount" name="yearlySubscriptionAmount" min="0" step="0.01" placeholder="0.00">
+          </div>
+
+          <!-- Subscription Dates -->
+          <h3 style="margin-top: 2rem; margin-bottom: 1rem; color: var(--primary-color);">Subscription Details</h3>
+
+          <div class="form-group">
+            <label for="subscriptionStartDate">Subscription Start Date</label>
+            <input type="date" id="subscriptionStartDate" name="subscriptionStartDate">
+          </div>
+
+          <div class="form-group">
+            <label for="subscriptionEndDate">Subscription End Date</label>
+            <input type="date" id="subscriptionEndDate" name="subscriptionEndDate">
+          </div>
+
+          <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+            <button type="submit" class="btn btn-success" style="flex: 1;">Add Customer</button>
+            <a href="customers.html" class="btn btn-secondary" style="flex: 1; text-align: center;">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/api.js"></script>
+  <script>
+    // Protect page
+    protectPage();
+
+    // Display admin name
+    const admin = utils.getAdminInfo();
+    if (admin) {
+      document.getElementById('adminName').textContent = admin.name;
+    }
+
+    // Handle form submission
+    document.getElementById('addCustomerForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const formData = {
+        firstName: document.getElementById('firstName').value,
+        lastName: document.getElementById('lastName').value,
+        email: document.getElementById('email').value,
+        phone: document.getElementById('phone').value,
+        company: document.getElementById('company').value,
+        status: document.getElementById('status').value,
+        plan: document.getElementById('plan').value,
+        notes: document.getElementById('notes').value,
+        websiteUrl: document.getElementById('websiteUrl').value,
+        websiteDevelopedAmount: parseFloat(document.getElementById('websiteDevelopedAmount').value) || 0,
+        yearlySubscriptionAmount: parseFloat(document.getElementById('yearlySubscriptionAmount').value) || 0,
+        subscriptionStartDate: document.getElementById('subscriptionStartDate').value,
+        subscriptionEndDate: document.getElementById('subscriptionEndDate').value,
+      };
+
+      try {
+        const result = await customerAPI.create(formData);
+
+        if (result.data.success) {
+          utils.showNotification('Customer added successfully', 'success');
+          setTimeout(() => {
+            window.location.href = '/customers.html';
+          }, 1500);
+        } else {
+          utils.showNotification(result.data.message, 'error');
+        }
+      } catch (error) {
+        utils.showNotification('Failed to add customer', 'error');
+        console.error('Error adding customer:', error);
+      }
+    });
+  </script>
+</body>
+</html>
