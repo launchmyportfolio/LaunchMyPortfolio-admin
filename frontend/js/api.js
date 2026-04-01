@@ -1,10 +1,10 @@
 /* =====================================================
    API Configuration and Helper Functions
-   Change API_BASE_URL to match your backend server
+   Uses APP_CONFIG from config.js for environment-specific URLs
    ===================================================== */
 
-// API Base URL - CHANGE THIS to your backend URL in production
-const API_BASE_URL = 'http://localhost:5000/api';
+// API Base URL - from config.js (auto-detects environment)
+const API_BASE_URL = window.APP_CONFIG?.API_BASE_URL || 'http://localhost:5000/api';
 
 // API Helper - Make authenticated requests
 const apiCall = async (endpoint, method = 'GET', body = null) => {
